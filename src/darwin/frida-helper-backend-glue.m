@@ -33,6 +33,16 @@
 # define _POSIX_SPAWN_DISABLE_ASLR 0x0100
 #endif
 
+#ifdef HAVE_ARM64
+  typedef arm_debug_state32_t arm_unified_debug_state_t;
+# define ARM_UNIFIED_DEBUG_STATE_COUNT ARM_DEBUG_STATE32_COUNT
+# define ARM_UNIFIED_DEBUG_STATE ARM_DEBUG_STATE32
+#else
+  typedef arm_debug_state_t arm_unified_debug_state_t;
+# define ARM_UNIFIED_DEBUG_STATE_COUNT ARM_DEBUG_STATE_COUNT
+# define ARM_UNIFIED_DEBUG_STATE ARM_DEBUG_STATE
+#endif
+
 #define FRIDA_PSR_THUMB                  0x20
 #define FRIDA_MAX_BREAKPOINTS            4
 #define FRIDA_MAX_PAGE_POOL              8
@@ -85,7 +95,7 @@ union _FridaDebugState
 #ifdef HAVE_I386
   x86_debug_state_t state;
 #else
-  arm_debug_state32_t s32;
+  arm_unified_debug_state_t s32;
   arm_debug_state64_t s64;
 #endif
 };
@@ -4068,8 +4078,8 @@ frida_get_debug_state (mach_port_t thread, gpointer state, GumCpuType cpu_type)
   }
   else
   {
-    state_count = ARM_DEBUG_STATE32_COUNT;
-    kr = thread_get_state (thread, ARM_DEBUG_STATE, state, &state_count);
+    state_count = ARM_UNIFIED_DEBUG_STATE_COUNT;
+    kr = thread_get_state (thread, ARM_UNIFIED_DEBUG_STATE, state, &state_count);
   }
 #endif
 
@@ -4093,8 +4103,8 @@ frida_set_debug_state (mach_port_t thread, gconstpointer state, GumCpuType cpu_t
   }
   else
   {
-    state_count = ARM_DEBUG_STATE32_COUNT;
-    kr = thread_set_state (thread, ARM_DEBUG_STATE32, (thread_state_t) state, state_count);
+    state_count = ARM_UNIFIED_DEBUG_STATE_COUNT;
+    kr = thread_set_state (thread, ARM_UNIFIED_DEBUG_STATE, (thread_state_t) state, state_count);
   }
 #endif
 
@@ -4144,7 +4154,7 @@ frida_set_nth_hardware_breakpoint (gpointer state, guint n, GumAddress break_at,
   }
   else
   {
-    arm_debug_state_t * s = state;
+    arm_unified_debug_state_t * s = state;
 
     s->__bvr[n] = break_at;
     if (break_at != 0)
@@ -4191,15 +4201,17 @@ frida_set_hardware_single_step (gpointer debug_state, GumDarwinUnifiedThreadStat
     else
       s->__mdscr_el1 = 0;
   }
+#ifdef HAVE_ARM64
   else
   {
-    arm_debug_state32_t * s = debug_state;
+    arm_unified_debug_state_t * s = debug_state;
 
     if (enabled)
       s->__mdscr_el1 |= FRIDA_SINGLE_STEP_ENABLED;
     else
       s->__mdscr_el1 = 0;
   }
+#endif
 #endif
 }
 
